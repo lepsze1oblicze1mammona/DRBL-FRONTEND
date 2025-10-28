@@ -1,4 +1,5 @@
 import { User, LoginCredentials, ApiResponse, LoggedInUser } from '../types/api';
+import { getTokenInfo, setTokenInfo, clearTokenInfo } from '../lib/auth';
 
 export const apiClient = {
   async createUser(userData: User): Promise<ApiResponse> {
@@ -37,6 +38,7 @@ export const apiClient = {
         const loggedInUser: LoggedInUser = {
           login: credentials.login
         };
+        setTokenInfo(result.token, result.expiresAt);
         
         return { 
           success: true, 
@@ -51,12 +53,13 @@ export const apiClient = {
     }
   },
 
-  async logout(): Promise<ApiResponse> {
+  async logout(token: string): Promise<ApiResponse> {
     try {
       const response = await fetch('/api/logout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `${token}`,
         },
       });
       
@@ -69,4 +72,34 @@ export const apiClient = {
       return { success: false, error: 'Błąd połączenia z serwerem' };
     }
   },
+//POPRAWA TEGO SYFA
+  async refreshToken(): Promise<ApiResponse<{ token: string; expiresAt: string }>> {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) return { success: false, error: 'Brak tokena' };
+
+    const response = await fetch('/api/refresh', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      credentials: 'include', // if your backend uses cookies
+    });
+
+    if (!response.ok) {
+      return { success: false, error: 'Odświeżanie tokena nie powiodło się' };
+    }
+
+    const data = await response.json();
+    if (data.token && data.expiresAt) {
+      return { success: true, data: { token: data.token, expiresAt: data.expiresAt } };
+    } else {
+      return { success: false, error: 'Nieprawidłowa odpowiedź z serwera' };
+    }
+  } catch (error) {
+    return { success: false, error: 'Błąd połączenia z serwerem' };
+  }
+},
+
 };

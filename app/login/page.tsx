@@ -36,7 +36,8 @@ export default function Login() {
         
         setMessage('Logowanie udane!');
         setTimeout(() => {
-          router.push('/');
+          //router.push('/'); FAWELA MACZAL PALCE
+          router.push('/create-image');
         }, 1000);
       } else {
         const errorMessage = result.error || result.message || 'Błędne dane logowania';
