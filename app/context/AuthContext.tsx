@@ -33,36 +33,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // auto refresh token
   useEffect(() => {
-    if (!token) return;
+  if (!token) return;
 
-    const tokenInfo = getTokenInfo();
-    if (!tokenInfo) return;
+  const tokenInfo = getTokenInfo();
+  if (!tokenInfo || !tokenInfo.expiresAt) return;
 
-    const expiryTime = new Date(tokenInfo.expiresAt).getTime();
-    const refreshTime = expiryTime - 2 * 60 * 1000; // 2 minutes before expiry
-    const delay = Math.max(refreshTime - Date.now(), 0);
+  const expiryTime = new Date(tokenInfo.expiresAt).getTime();
+  const refreshTime = expiryTime - 2 * 60 * 1000; // 2 minutes before expiry
+  const delay = Math.max(refreshTime - Date.now(), 0);
 
-    const timer = setTimeout(async () => {
-      try {
-        const res = await apiClient.refreshToken();
-        console.log(res.message);
-        if (res.success && res.data) {
-          setToken(res.data.token);
-          setTokenInfo(res.data.token, res.data.expiresAt);
-        } else {
-          clearTokenInfo();
-          setToken(null);
-          setUser(null);
-        }
-      } catch {
+  const timer = setTimeout(async () => {
+    try {
+      const res = await apiClient.refreshToken();
+      if (res.success && res.data) {
+        // update local component state
+        setToken(res.data.token);
+        // setTokenInfo already called inside refreshToken, but keep it idempotent if needed:
+        setTokenInfo(res.data.token, res.data.expiresAt);
+      } else {
+        // refresh failed (expired/invalid). Clear local auth state.
         clearTokenInfo();
         setToken(null);
-        setUser(null);
+        setUser?.(null); // optional: only if setUser exists in scope
       }
-    }, delay);
+    } catch (err) {
+      // network or unexpected failure: clear session to force login
+      clearTokenInfo();
+      setToken(null);
+      setUser?.(null);
+    }
+  }, delay);
 
-    return () => clearTimeout(timer);
-  }, [token]);
+  return () => clearTimeout(timer);
+}, [token]);
+
 
   const setAuth = (data: { token: string; user: any; expiresAt: string }) => {
     setToken(data.token);

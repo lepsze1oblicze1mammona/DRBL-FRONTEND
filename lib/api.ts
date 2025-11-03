@@ -72,34 +72,55 @@ export const apiClient = {
       return { success: false, error: 'Błąd połączenia z serwerem' };
     }
   },
-//POPRAWA TEGO SYFA
-  async refreshToken(): Promise<ApiResponse<{ token: string; expiresAt: string }>> {
+
+
+async refreshToken(): Promise<ApiResponse<{ token: string; expiresAt: string }>> {
   try {
-    const token = localStorage.getItem('token');
-    if (!token) return { success: false, error: 'Brak tokena' };
+    // read token info from your helper
+    const info = getTokenInfo();
+    if (!info || !info.token) {
+      return { success: false, error: 'Brak tokena' };
+    }
+
+    // Build Authorization header without double "Bearer" prefix
+    let authHeader = info.token;
+    if (!/^Bearer\s+/i.test(authHeader)) {
+      authHeader = `Bearer ${authHeader}`;
+    }
 
     const response = await fetch('/api/refresh', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        Authorization: authHeader,
       },
-      credentials: 'include', // if your backend uses cookies
     });
 
-    if (!response.ok) {
-      return { success: false, error: 'Odświeżanie tokena nie powiodło się' };
+    // Explicit handling for unauthorized
+    if (response.status === 401) {
+      // backend says token invalid/expired
+      clearTokenInfo();
+      return { success: false, error: 'unauthorized' };
     }
 
-    const data = await response.json();
-    if (data.token && data.expiresAt) {
-      return { success: true, data: { token: data.token, expiresAt: data.expiresAt } };
-    } else {
+    if (!response.ok) {
+      const txt = await response.text().catch(() => '');
+      return { success: false, error: `Odświeżanie tokena nie powiodło się (${response.status}) ${txt}` };
+    }
+
+    const data = await response.json().catch(() => null);
+    if (!data || !data.token || !data.expiresAt) {
       return { success: false, error: 'Nieprawidłowa odpowiedź z serwera' };
     }
-  } catch (error) {
+
+    // Persist exactly what backend returned (keeps compatibility with other callers)
+    setTokenInfo(data.token, data.expiresAt);
+
+    return { success: true, data: { token: data.token, expiresAt: data.expiresAt } };
+  } catch (err: any) {
     return { success: false, error: 'Błąd połączenia z serwerem' };
   }
 },
+
 
 };
