@@ -8,6 +8,7 @@ const menuItems = [
   { href: '/create-image', label: 'Create image' },
   { href: '/restore-image', label: 'Restore image' },
   { href: '/save-image', label: 'Save image (RAM)' },
+  { href: '/drbl-config', label: 'Make changes to DRBL server' },
 ];
 
 function Header() {
