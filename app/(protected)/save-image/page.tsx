@@ -12,7 +12,7 @@ export default function SaveImagePage() {
   const [message, setMessage] = useState<string | null>(null)
   const [steps, setSteps] = useState([
     { label: 'Restart DRBL', state: 'pending' } as { label: string; state: StepState },
-    { label: 'Start disk save to RAM', state: 'pending' } as { label: string; state: StepState },
+    { label: 'Start disk save or run RAM session', state: 'pending' } as { label: string; state: StepState },
   ])
 
   useEffect(() => {
@@ -94,7 +94,7 @@ export default function SaveImagePage() {
 
       runStep(0, 'done')
       runStep(1, 'active')
-      setMessage('DRBL restarted. Starting disk save to RAM...')
+      setMessage('DRBL restarted. Starting disk (RAM) ...')
 
       // Step 2: saveDiskRam POST JSON body
       const body = JSON.stringify({ image: imageName.trim() })
@@ -118,7 +118,7 @@ export default function SaveImagePage() {
       }
 
       runStep(1, 'done')
-      setMessage('Disk save started successfully. The image will be saved to RAM.')
+      setMessage('Disk save started successfully. The image will be saved or RAM session will start.')
     } catch (err: any) {
       // mark active steps as error
       setSteps((prev) => prev.map((s) => (s.state === 'active' ? { ...s, state: 'error' } : s)))
@@ -139,10 +139,10 @@ export default function SaveImagePage() {
 
   return (
     <div className="max-w-xl mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-semibold text-gray-800">Save Image to RAM</h1>
+      <h1 className="text-2xl font-semibold text-gray-800">Save Image  or RAM session</h1>
 
       <p className="text-gray-700">
-        This will restart the DRBL service and start a disk save operation into RAM. Provide an image
+        This will restart the DRBL service and start a disk save or run live RAM session. Provide an image
         name (alphanumeric and hyphens allowed).
       </p>
 

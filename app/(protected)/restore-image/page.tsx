@@ -9,6 +9,8 @@ export default function RestoreImagePage() {
   const [token, setToken] = useState<string | null>(null)
   const [images, setImages] = useState<string[]>([])
   const [imageName, setImageName] = useState('')
+  const [clientsToWait, setClientsToWait] = useState<number>(2)
+  const [maxTimeToWait, setMaxTimeToWait] = useState<number>(60)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [steps, setSteps] = useState([
@@ -73,6 +75,8 @@ export default function RestoreImagePage() {
   }
 
   const validateImageName = (name: string) => /^[A-Za-z0-9-]+$/.test(name)
+  const validateClients = (n: number) => Number.isInteger(n) && n >= 0
+  const validateMaxTime = (t: number) => Number.isInteger(t) && t >= 1
 
   const handleRestore = async () => {
     setMessage(null)
@@ -93,6 +97,16 @@ export default function RestoreImagePage() {
       return
     }
 
+    if (!validateClients(clientsToWait)) {
+      setMessage('Invalid value for clients to wait. Must be integer ≥ 0.')
+      return
+    }
+
+    if (!validateMaxTime(maxTimeToWait)) {
+      setMessage('Invalid value for max time to wait. Must be integer ≥ 1 (seconds).')
+      return
+    }
+
     setLoading(true)
     runStep(0, 'active')
     runStep(1, 'pending')
@@ -110,8 +124,12 @@ export default function RestoreImagePage() {
       runStep(1, 'active')
       setMessage('DRBL restarted. Starting restore...')
 
-      // Step 2: restore image
-      const body = JSON.stringify({ image: trimmed })
+      // Step 2: restore image — include clientsToWait and maxTimeToWait in payload
+      const body = JSON.stringify({
+        image: trimmed,
+        clientsToWait: clientsToWait,
+        maxTimeToWait: maxTimeToWait,
+      })
       const restoreRes = await fetchWithTimeout('/api/restoreDiskImage', {
         method: 'POST',
         headers: { Authorization: `${token}`, 'Content-Type': 'application/json' },
@@ -132,7 +150,11 @@ export default function RestoreImagePage() {
   }
 
   const progress = (steps.filter(s => s.state === 'done').length / steps.length) * 100
-  const isButtonDisabled = loading || !validateImageName(imageName.trim()) || !images.includes(imageName.trim())
+  const isButtonDisabled = loading
+    || !validateImageName(imageName.trim())
+    || !images.includes(imageName.trim())
+    || !validateClients(clientsToWait)
+    || !validateMaxTime(maxTimeToWait)
 
   return (
     <div className="max-w-xl mx-auto p-6 space-y-6">
@@ -152,6 +174,36 @@ export default function RestoreImagePage() {
           disabled={loading}
         />
         <p className="text-xs text-gray-500">Must match one of the visible images in the table above.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Clients to wait</label>
+          <input
+            type="number"
+            value={clientsToWait}
+            onChange={(e) => setClientsToWait(Number(e.target.value))}
+            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+            min={0}
+            step={1}
+            disabled={loading}
+          />
+          <p className="text-xs text-gray-500">Number of clients the restore should wait for (integer ≥ 0). Default: 2</p>
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Max time to wait (seconds)</label>
+          <input
+            type="number"
+            value={maxTimeToWait}
+            onChange={(e) => setMaxTimeToWait(Number(e.target.value))}
+            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+            min={1}
+            step={1}
+            disabled={loading}
+          />
+          <p className="text-xs text-gray-500">Maximum wait time in seconds. Default: 60</p>
+        </div>
       </div>
 
       <div className="border rounded-lg p-2 max-h-48 overflow-auto">
